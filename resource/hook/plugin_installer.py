@@ -64,7 +64,7 @@ class PluginInstaller(ftrack_connect.ui.application.ConnectWidget):
         self.plugin_list_widget = DndPluginList(
             self.session
         )
-        self.plugin_list_widget.update_available.connect(
+        self.plugin_list_widget.updates_available.connect(
             self.on_updates_available
         )
         layout.addWidget(self.plugin_list_widget)
@@ -115,8 +115,7 @@ class PluginInstaller(ftrack_connect.ui.application.ConnectWidget):
         self.refresh()
 
     def on_updates_available(self):
-        self.icon = STATUS_ICONS[STATUSES.UPDATE]
-
+        self.requestIconUpdate.emit(STATUS_ICONS[STATUSES.UPDATE])
 
     def reset_plugin_list(self):
         self.counter = 0

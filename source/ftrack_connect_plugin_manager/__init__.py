@@ -7,6 +7,8 @@ import shutil
 import zipfile
 import tempfile
 import urllib
+import logging
+
 from urllib.request import urlopen
 from distutils.version import LooseVersion
 import appdirs
@@ -143,7 +145,7 @@ class PluginProcessor(QtCore.QObject):
 
 class DndPluginList(QtWidgets.QFrame):
 
-    updates_available  = QtCore.Signal()
+    updates_available = QtCore.Signal()
 
     default_json_config_url = 'https://download.ftrack.com/ftrack-connect/plugins.json'
     plugin_re = re.compile(
@@ -152,6 +154,16 @@ class DndPluginList(QtWidgets.QFrame):
     
     def __init__(self, session, parent=None):
         super(DndPluginList, self).__init__(parent=parent)
+
+        self.logger = logging.getLogger(
+            __name__ + '.' + self.__class__.__name__
+        )
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.populate_download_plugins)
+
+        # check every hour
+        self.timer.start(4000000)
 
         self.json_config_url = os.environ.get(
             'FTRACK_CONNECT_JSON_PLUGINS_URL',
@@ -308,6 +320,8 @@ class DndPluginList(QtWidgets.QFrame):
 
     def populate_download_plugins(self):
         '''Populate model with remotely configured plugins.'''
+
+        self.logger.info(f'Fetching from {self.json_config_url}')
 
         response = urlopen(self.json_config_url)
         response_json = json.loads(response.read())
