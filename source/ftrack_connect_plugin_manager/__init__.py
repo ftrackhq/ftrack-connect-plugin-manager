@@ -143,11 +143,13 @@ class PluginProcessor(QtCore.QObject):
 
 class DndPluginList(QtWidgets.QFrame):
 
+    updates_available  = QtCore.Signal()
+
     default_json_config_url = 'https://download.ftrack.com/ftrack-connect/plugins.json'
     plugin_re = re.compile(
         '(?P<name>(([A-Za-z-3-4]+)))-(?P<version>(\w.+))'
     )
-
+    
     def __init__(self, session, parent=None):
         super(DndPluginList, self).__init__(parent=parent)
 
@@ -261,6 +263,8 @@ class DndPluginList(QtWidgets.QFrame):
             stored_item.setCheckable(True)
             stored_item.setEnabled(True)
             stored_item.setCheckState(QtCore.Qt.Checked)
+
+            self.updates_available.emit()
 
     def plugin_is_available(self, plugin_data):
         '''Return item from *plugin_data* if found.'''

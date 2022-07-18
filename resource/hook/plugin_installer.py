@@ -19,7 +19,7 @@ import ftrack_connect.ui.application
 from ftrack_connect.asynchronous import asynchronous
 
 from ftrack_connect_plugin_manager import (
-    InstallerBlockingOverlay, PluginProcessor, DndPluginList, ROLES
+    InstallerBlockingOverlay, PluginProcessor, DndPluginList, ROLES, STATUS_ICONS, STATUSES
 )
 
 logger = logging.getLogger('ftrack_connect.plugin.plugin_installer')
@@ -63,6 +63,9 @@ class PluginInstaller(ftrack_connect.ui.application.ConnectWidget):
         # plugin list
         self.plugin_list_widget = DndPluginList(
             self.session
+        )
+        self.plugin_list_widget.update_available.connect(
+            self.on_updates_available
         )
         layout.addWidget(self.plugin_list_widget)
 
@@ -110,6 +113,10 @@ class PluginInstaller(ftrack_connect.ui.application.ConnectWidget):
 
         # refresh
         self.refresh()
+
+    def on_updates_available(self):
+        self.icon = STATUS_ICONS[STATUSES.UPDATE]
+
 
     def reset_plugin_list(self):
         self.counter = 0
