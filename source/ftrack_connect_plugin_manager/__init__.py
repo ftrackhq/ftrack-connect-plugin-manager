@@ -11,12 +11,22 @@ from urllib.request import urlopen
 from packaging.version import parse as parse_version
 import appdirs
 import json
+import sys
 
 from ftrack_connect.qt import QtWidgets, QtCore, QtGui
 import qtawesome as qta
 
 from ftrack_connect.ui.widget.overlay import BlockingOverlay
 
+DEFAULT_JSON_CONFIG_URL = (
+    'https://download.ftrack.com/ftrack-connect/plugins.json'
+)
+
+PLATFORM_TO_PKGNAME_MAPPING = {
+    'darwin': 'macosx',
+    'linux': 'linux',
+    'win32': 'windows',
+}
 
 class InstallerBlockingOverlay(BlockingOverlay):
     '''Custom blocking overlay for publisher.'''
@@ -58,7 +68,8 @@ class ROLES(object):
     PLUGIN_STATUS = QtCore.Qt.UserRole + 1
     PLUGIN_NAME = PLUGIN_STATUS + 1
     PLUGIN_VERSION = PLUGIN_NAME + 1
-    PLUGIN_SOURCE_PATH = PLUGIN_VERSION + 1
+    PLUGIN_PLATFORM = PLUGIN_VERSION + 1
+    PLUGIN_SOURCE_PATH = PLUGIN_PLATFORM + 1
     PLUGIN_INSTALL_PATH = PLUGIN_SOURCE_PATH + 1
     PLUGIN_ID = PLUGIN_INSTALL_PATH + 1
 
@@ -141,16 +152,14 @@ class PluginProcessor(QtCore.QObject):
 
 class DndPluginList(QtWidgets.QFrame):
 
-    default_json_config_url = (
-        'https://download.ftrack.com/ftrack-connect/plugins.json'
-    )
-    plugin_re = re.compile('(?P<name>(([A-Za-z-3-4]+)))-(?P<version>(\w.+))')
+    plugin_re = re.compile('(?P<name>(([A-Za-z0-9-3-4]+)))-(?P<version>(\w.+))')
+    plugin_platform_re = re.compile('(?P<name>(([A-Za-z0-9-3-5]+))).(?P<platform>(\w.+))-(?P<version>(\w.+))')
 
     def __init__(self, session, parent=None):
         super(DndPluginList, self).__init__(parent=parent)
 
         self.json_config_url = os.environ.get(
-            'FTRACK_CONNECT_JSON_PLUGINS_URL', self.default_json_config_url
+            'FTRACK_CONNECT_JSON_PLUGINS_URL', DEFAULT_JSON_CONFIG_URL
         )
 
         self.default_plugin_directory = appdirs.user_data_dir(
@@ -175,6 +184,9 @@ class DndPluginList(QtWidgets.QFrame):
         if not file_path:
             return
 
+        # Substitute platform specific plugin name with generic name
+        file_path = file_path.replace('.platform', '.{}'.format(PLATFORM_TO_PKGNAME_MAPPING[sys.platform]))
+
         data = self._is_plugin_valid(file_path)
 
         if not data:
@@ -197,6 +209,8 @@ class DndPluginList(QtWidgets.QFrame):
         new_plugin_version = parse_version(data['version'])
         plugin_item.setData(new_plugin_version, ROLES.PLUGIN_VERSION)
         plugin_item.setData(plugin_id, ROLES.PLUGIN_ID)
+        if 'platform' in data:
+            plugin_item.setData(data['platform'], ROLES.PLUGIN_PLATFORM)
         plugin_item.setIcon(STATUS_ICONS[status])
 
         # check if is a new plugin.....
@@ -268,11 +282,13 @@ class DndPluginList(QtWidgets.QFrame):
         '''Return whether the provided *plugin_path* is a valid plugin.'''
         plugin_name = os.path.basename(plugin_path)
         match = self.plugin_re.match(plugin_name)
+        if not match:
+            # Attempt to match platform specific plugin.
+            match = self.plugin_platform_re.match(plugin_name)
         if match:
             data = match.groupdict()
         else:
             return False
-
         if data['version'].endswith('.zip'):
             # pop zip extension from the version.
             # TODO: refine regex to catch extension
@@ -281,6 +297,7 @@ class DndPluginList(QtWidgets.QFrame):
 
     def populate_installed_plugins(self):
         '''Populate model with installed plugins.'''
+        import sys
         self.plugin_model.clear()
 
         plugins = os.listdir(self.default_plugin_directory)
@@ -297,6 +314,7 @@ class DndPluginList(QtWidgets.QFrame):
 
         for link in response_json['integrations']:
             self.addPlugin(link, STATUSES.DOWNLOAD)
+
 
     def _processMimeData(self, mimeData):
         '''Return a list of valid filepaths.'''
