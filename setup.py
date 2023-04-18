@@ -51,6 +51,7 @@ class BuildPlugin(Command):
     def run(self):
         '''Run the build step.'''
         import setuptools_scm
+
         release = setuptools_scm.get_version(version_scheme='post-release')
         print(release)
         VERSION = '.'.join(release.split('.')[:3])
@@ -62,28 +63,27 @@ class BuildPlugin(Command):
         shutil.rmtree(STAGING_PATH, ignore_errors=True)
 
         # Copy hook files
-        shutil.copytree(
-            HOOK_PATH,
-            os.path.join(STAGING_PATH, 'hook')
-        )
+        shutil.copytree(HOOK_PATH, os.path.join(STAGING_PATH, 'hook'))
 
         # Install local dependencies
         subprocess.check_call(
             [
-                sys.executable, '-m', 'pip', 'install', '.', '--target',
-                os.path.join(STAGING_PATH, 'dependencies')
+                sys.executable,
+                '-m',
+                'pip',
+                'install',
+                '.',
+                '--target',
+                os.path.join(STAGING_PATH, 'dependencies'),
             ]
         )
         print(VERSION)
 
         # Generate plugin zip
         shutil.make_archive(
-            os.path.join(
-                BUILD_PATH,
-                PLUGIN_NAME.format(VERSION)
-            ),
+            os.path.join(BUILD_PATH, PLUGIN_NAME.format(VERSION)),
             'zip',
-            STAGING_PATH
+            STAGING_PATH,
         )
 
 
@@ -105,20 +105,20 @@ setup(
         'lowdown >= 0.1.0, < 2',
         'setuptools>=45.0.0',
         'setuptools_scm',
-        'packaging'
+        'packaging',
     ],
     tests_require=['pytest >= 2.3.5, < 3'],
     use_scm_version={
         'write_to': 'source/ftrack_connect_plugin_manager/_version.py',
         'write_to_template': version_template,
-        'version_scheme': 'post-release'
+        'version_scheme': 'post-release',
     },
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
         'Intended Audience :: Developers',
-        'Programming Language :: Python :: 3'
+        'Programming Language :: Python :: 3',
     ],
     cmdclass={'build_plugin': BuildPlugin},
     zip_safe=False,
-    python_requires=">=3, <4"
+    python_requires=">=3, <4",
 )
