@@ -49,23 +49,51 @@ class PluginInstaller(ftrack_connect.ui.application.ConnectWidget):
         self.plugin_processor = PluginProcessor()
 
         layout = QtWidgets.QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         self.setLayout(layout)
+
+        self.notification_widget = NotificationWidget()
+        self.notification_widget.setLayout(QtWidgets.QHBoxLayout())
+        self.notification_widget.layout().setSpacing(5)
+        self.notification_widget.setAutoFillBackground(True)
+        self.notification_widget.setStyleSheet(
+            '''background-color: #bfffbf;'''
+        )
+        self.notification_widget.setVisible(False)
+
+        icon = QtWidgets.QLabel()
+        icon.setPixmap(
+            QtGui.QIcon(qta.icon('mdi6.update')).pixmap(QtCore.QSize(20, 20))
+        )
+        self.notification_widget.layout().addWidget(icon)
+
+        self.notification_label = QtWidgets.QLabel()
+        self.notification_label.setStyleSheet('''color: #000;''')
+        self.notification_widget.layout().addWidget(
+            self.notification_label, 100
+        )
+
+        self.layout().addWidget(self.notification_widget)
+
+        self.content_widget = QtWidgets.QWidget()
+        self.content_widget.setLayout(QtWidgets.QVBoxLayout())
 
         self.search_bar = QtWidgets.QLineEdit()
         self.search_bar.setPlaceholderText('Search plugin...')
 
-        self.layout().addWidget(self.search_bar)
+        self.content_widget.layout().addWidget(self.search_bar)
         label = QtWidgets.QLabel(
             'Check the plugins you want to install or add your'
             ' local plugins by dropping them on the list below'
         )
         label.setWordWrap(True)
         label.setMargin(5)
-        self.layout().addWidget(label)
+        self.content_widget.layout().addWidget(label)
 
         # plugin list
         self.plugin_list_widget = DndPluginList(self.session)
-        layout.addWidget(self.plugin_list_widget)
+        self.content_widget.layout().addWidget(self.plugin_list_widget)
 
         # apply and reset button.
         button_layout = QtWidgets.QHBoxLayout()
@@ -81,7 +109,9 @@ class PluginInstaller(ftrack_connect.ui.application.ConnectWidget):
         button_layout.addWidget(self.apply_button)
         button_layout.addWidget(self.reset_button)
 
-        layout.addLayout(button_layout)
+        self.content_widget.layout().addLayout(button_layout)
+
+        self.layout().addWidget(self.content_widget, 100)
 
         # overlays
         self.blockingOverlay = InstallerBlockingOverlay(self)
@@ -95,6 +125,7 @@ class PluginInstaller(ftrack_connect.ui.application.ConnectWidget):
         self.busyOverlay.hide()
 
         # wire connections
+        self.notification_widget.clicked.connect(self._on_apply_changes)
         self.apply_button.clicked.connect(self._on_apply_changes)
         self.reset_button.clicked.connect(self.refresh)
         self.search_bar.textChanged.connect(
@@ -166,8 +197,18 @@ class PluginInstaller(ftrack_connect.ui.application.ConnectWidget):
         self.refresh_started.emit()
         self.plugin_list_widget.populate_installed_plugins()
         self.plugin_list_widget.populate_download_plugins()
-        self.enable_apply_button(None)
         self.reset_plugin_list()
+        self.enable_apply_button(None)
+        self.notification_widget.setVisible(
+            0 < len(self._plugins_to_install)
+        )
+        self.notification_label.setText(
+            '{} plugin{} update{} available, click to install...'.format(
+                len(self._plugins_to_install),
+                's' if len(self._plugins_to_install) > 1 else '',
+                's' if len(self._plugins_to_install) > 1 else '',
+            )
+        )
         self.refresh_done.emit()
 
     def _show_user_message(self):
@@ -207,6 +248,18 @@ class PluginInstaller(ftrack_connect.ui.application.ConnectWidget):
         self.installation_done.emit()
         self.emit_downloaded_plugins(self._plugins_to_install)
         self.reset_plugin_list()
+
+
+class NotificationWidget(QtWidgets.QFrame):
+    clicked = QtCore.Signal()
+
+    def __init__(self, parent=None):
+        super(NotificationWidget, self).__init__(parent=None)
+
+    def mousePressEvent(self, event):
+        '''(Override)'''
+        self.clicked.emit()
+        return super(NotificationWidget, self).mousePressEvent(event)
 
 
 def register(session, **kw):
